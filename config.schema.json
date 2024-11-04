@@ -1,0 +1,31 @@
+{
+  "pluginAlias": "SternetSmartLan",
+  "pluginType": "platform",
+  "strictValidation": false,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "required": true,
+        "default": ""
+      },
+      "device_type": {
+        "title": "Type",
+        "type": "string",
+        "required": true,
+        "default": "",
+        "oneOf": [
+          { "title": "CCT Downlighter", "enum": ["cct_downlighter"] }
+        ]
+      },
+      "ip": {
+        "title": "IP Address",
+        "type": "string",
+        "required": true,
+        "default": ""
+      }
+    }
+  }
+}
