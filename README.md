@@ -35,7 +35,7 @@ Add the following to your Homebridge `config.json` or use the Homebridge Config 
     "platform": "SternetSmartHomebridgeLan",
     "devices": [
         {
-            "name": "Downlighter 1",
+            "name": "CCT Downlighter 1",
             "ip": "192.168.1.100",
             "type": "cct_downlighter"
         }
@@ -56,7 +56,7 @@ Add the following to your Homebridge `config.json` or use the Homebridge Config 
 |-----------|------|---------|-------------|
 | `name` | String | Required | Name of the device |
 | `ip` | String | Required | IP address of the device |
-| `type` | String | Required | Device type ("switch", "bulb", "plug", "curtain") |
+| `type` | String | Required | Device type ("cct_downlighter") |
 
 ## Usage
 
