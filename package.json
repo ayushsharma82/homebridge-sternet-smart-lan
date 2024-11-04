@@ -3,7 +3,6 @@
   "displayName": "Sternet Smart Plugin (LAN control)",
   "type": "module",
   "version": "1.0.0",
-  "private": true,
   "description": "A homebridge plugin for controlling sternet smart devices over local area network.",
   "author": "Ayush Sharma",
   "license": "Apache-2.0",
