@@ -38,6 +38,7 @@ export class CCTDownlighter {
   private isOnline = false;
   private lastStatus: DeviceStatus | null = null;
 
+  // States are only updated when received from the device
   private states = {
     On: false,
     Brightness: 100,
@@ -79,6 +80,9 @@ export class CCTDownlighter {
 
     // Initialize WebSocket connection
     this.connectWebSocket();
+
+    // Mark device as not responding initially
+    this.updateNotResponding();
   }
 
   /**
@@ -122,6 +126,14 @@ export class CCTDownlighter {
     }
 
     this.lastStatus = status;
+  }
+
+  // Only mark the primary (On) characteristic as not responding
+  private updateNotResponding() {
+    this.service.updateCharacteristic(
+      this.platform.Characteristic.On,
+      new Error('Device not responding')
+    );
   }
 
   /**
@@ -206,7 +218,8 @@ export class CCTDownlighter {
         }, this.STATUS_CHECK_INTERVAL);
 
         this.isOnline = true;
-        this.sendState();
+        // Update HomeKit to show device is responding
+        this.service.updateCharacteristic(this.platform.Characteristic.On, this.states.On);
       });
 
       this.ws.on('message', (data) => {
@@ -218,6 +231,8 @@ export class CCTDownlighter {
             if (!this.isOnline) {
               this.isOnline = true;
               this.platform.log.info('Device is online:', response.hostname);
+              // Update HomeKit to show device is responding
+              this.service.updateCharacteristic(this.platform.Characteristic.On, this.states.On);
             }
           }
         } catch (error) {
@@ -250,6 +265,7 @@ export class CCTDownlighter {
       clearInterval(this.statusCheckInterval);
       this.statusCheckInterval = null;
     }
+    this.updateNotResponding();
     this.scheduleReconnect();
   }
 
@@ -269,18 +285,21 @@ export class CCTDownlighter {
    * Handle "SET" requests for the On/Off characteristic
    */
   async setOn(value: CharacteristicValue) {
-    if (!this.isOnline) {
-      return;
-    }
     this.states.On = value as boolean;
-    this.sendState();
-    this.platform.log.debug('Set Characteristic On ->', value);
+    if (this.isOnline) {
+      this.sendState();
+      this.platform.log.debug('Set Characteristic On ->', value);
+    }
   }
 
   /**
    * Handle "GET" requests for the On/Off characteristic
+   * Primary characteristic that indicates device responsiveness
    */
   async getOn(): Promise<CharacteristicValue> {
+    if (!this.isOnline) {
+      throw new Error('Device not responding');
+    }
     return this.states.On;
   }
 
@@ -288,12 +307,11 @@ export class CCTDownlighter {
    * Handle "SET" requests for the Brightness characteristic
    */
   async setBrightness(value: CharacteristicValue) {
-    if (!this.isOnline) {
-      return;
-    }
     this.states.Brightness = value as number;
-    this.sendState();
-    this.platform.log.debug('Set Characteristic Brightness -> ', value);
+    if (this.isOnline) {
+      this.sendState();
+      this.platform.log.debug('Set Characteristic Brightness -> ', value);
+    }
   }
 
   /**
@@ -307,12 +325,11 @@ export class CCTDownlighter {
    * Handle "SET" requests for the Color Temperature characteristic
    */
   async setColorTemperature(value: CharacteristicValue) {
-    if (!this.isOnline) {
-      return;
-    }
     this.states.ColorTemperature = value as number;
-    this.sendState();
-    this.platform.log.debug('Set Characteristic Color Temperature -> ', value);
+    if (this.isOnline) {
+      this.sendState();
+      this.platform.log.debug('Set Characteristic Color Temperature -> ', value);
+    }
   }
 
   /**
