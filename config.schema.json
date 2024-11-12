@@ -37,6 +37,13 @@
               "type": "string",
               "required": true,
               "default": ""
+            },
+            "restoreState": {
+              "title": "Restore Last State",
+              "type": "boolean",
+              "description": "Restore the last known state when device reconnects",
+              "default": false,
+              "required": false
             }
           }
         }

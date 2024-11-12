@@ -23,10 +23,22 @@ interface DeviceStatus {
   Free_Heap: number;
 }
 
+interface AccessoryState {
+  On: boolean;
+  Brightness: number;
+  ColorTemperature: number;
+}
+
 /**
  * CCT Downlighter Platform Accessory
  * Implements a color temperature adjustable downlighter with brightness control
  * Communicates with the physical device via WebSocket using direct hex values
+ * 
+ * Features:
+ * - Maintains state in HomeKit across restarts
+ * - Optional state restoration to device on reconnect (controlled by restoreState setting)
+ * - Automatic reconnection on connection loss
+ * - Status monitoring via WebSocket
  */
 export class CCTDownlighter {
   private service: Service;
@@ -37,9 +49,10 @@ export class CCTDownlighter {
   private readonly STATUS_CHECK_INTERVAL = 3000; // 3 seconds
   private isOnline = false;
   private lastStatus: DeviceStatus | null = null;
+  private readonly restoreState: boolean;
 
-  // States are only updated when received from the device
-  private states = {
+  // States are always maintained for HomeKit, but only sent to device on reconnect if restoreState is true
+  private states: AccessoryState = {
     On: false,
     Brightness: 100,
     ColorTemperature: 300,
@@ -49,6 +62,19 @@ export class CCTDownlighter {
     private readonly platform: SternetSmartHomebridgePlatform,
     private readonly accessory: PlatformAccessory,
   ) {
+    // Get restore state preference from device config
+    this.restoreState = accessory.context.device.restoreState ?? false;
+    this.platform.log.debug(
+      'Device restore state setting:',
+      this.restoreState ? 'enabled' : 'disabled',
+      '- Device will',
+      this.restoreState ? 'restore' : 'not restore',
+      'its last known state on reconnection'
+    );
+
+    // Always load cached state for HomeKit
+    this.loadCachedState();
+
     // Get or create the Lightbulb service
     this.service = this.accessory.getService(this.platform.Service.Lightbulb) 
       || this.accessory.addService(this.platform.Service.Lightbulb);
@@ -83,6 +109,35 @@ export class CCTDownlighter {
 
     // Mark device as not responding initially
     this.updateNotResponding();
+  }
+
+  /**
+   * Load cached state from accessory context
+   * This state is always maintained for HomeKit regardless of restoreState setting
+   */
+  private loadCachedState() {
+    const cachedState = this.accessory.context.state as AccessoryState | undefined;
+    
+    if (cachedState) {
+      this.states = {
+        On: cachedState.On,
+        Brightness: cachedState.Brightness,
+        ColorTemperature: cachedState.ColorTemperature,
+      };
+      this.platform.log.debug('Loaded cached state:', this.states);
+    } else {
+      // Initialize context with default values if no cached state exists
+      this.accessory.context.state = this.states;
+      this.platform.log.debug('No cached state found, using defaults:', this.states);
+    }
+  }
+
+  /**
+   * Save current state to accessory context
+   * This is always done to maintain state in HomeKit
+   */
+  private saveState() {
+    this.accessory.context.state = this.states;
   }
 
   /**
@@ -128,11 +183,14 @@ export class CCTDownlighter {
     this.lastStatus = status;
   }
 
-  // Only mark the primary (On) characteristic as not responding
+  /**
+   * Mark device as not responding in HomeKit
+   * Only needs to be set on the primary characteristic (On)
+   */
   private updateNotResponding() {
     this.service.updateCharacteristic(
       this.platform.Characteristic.On,
-      new Error('Device not responding'),
+      new Error('Device not responding')
     );
   }
 
@@ -218,7 +276,16 @@ export class CCTDownlighter {
         }, this.STATUS_CHECK_INTERVAL);
 
         this.isOnline = true;
-        // Update HomeKit to show device is responding
+
+        // Restore state to device based on configuration
+        if (this.restoreState) {
+          this.platform.log.info('Restoring last known state to device:', this.states);
+          this.sendState();
+        } else {
+          this.platform.log.debug('State restoration disabled - maintaining current device state');
+        }
+        
+        // Always update HomeKit to show device is responding
         this.service.updateCharacteristic(this.platform.Characteristic.On, this.states.On);
       });
 
@@ -286,6 +353,7 @@ export class CCTDownlighter {
    */
   async setOn(value: CharacteristicValue) {
     this.states.On = value as boolean;
+    this.saveState();
     if (this.isOnline) {
       this.sendState();
       this.platform.log.debug('Set Characteristic On ->', value);
@@ -308,6 +376,7 @@ export class CCTDownlighter {
    */
   async setBrightness(value: CharacteristicValue) {
     this.states.Brightness = value as number;
+    this.saveState();
     if (this.isOnline) {
       this.sendState();
       this.platform.log.debug('Set Characteristic Brightness -> ', value);
@@ -326,6 +395,7 @@ export class CCTDownlighter {
    */
   async setColorTemperature(value: CharacteristicValue) {
     this.states.ColorTemperature = value as number;
+    this.saveState();
     if (this.isOnline) {
       this.sendState();
       this.platform.log.debug('Set Characteristic Color Temperature -> ', value);
