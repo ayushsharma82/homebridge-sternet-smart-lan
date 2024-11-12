@@ -109,6 +109,7 @@ export class SternetSmartHomebridgePlatform implements DynamicPlatformPlugin {
           name: device.name,
           type: device.device_type,
           ip: device.ip,
+          restore_state: device.restore_state,
         };
 
         // create the accessory handler
