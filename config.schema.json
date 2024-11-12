@@ -41,7 +41,7 @@
             "restoreState": {
               "title": "Restore Last State",
               "type": "boolean",
-              "description": "Restore the last known state when device reconnects",
+              "description": "Send cached/last known state to device whenever it reconnects",
               "default": false,
               "required": false
             }
