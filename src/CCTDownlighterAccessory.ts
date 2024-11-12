@@ -5,18 +5,10 @@ import type { SternetSmartHomebridgePlatform } from './platform.js';
 
 // Add the helper functions at the top of the file
 const lerp = (min: number, max: number, n: number) => (1 - n) * min + n * max;
-
 const clamp = (n: number, min = 0, max = 1) => Math.min(max, Math.max(min, n));
-
-const invlerp = (min: number, max: number, n: number) =>
-  clamp((n - min) / (max - min));
-
-const interpolate = (inputRange: number[], outputRange: number[], n: number) =>
-  lerp(
-    outputRange[0],
-    outputRange[1],
-    invlerp(inputRange[0], inputRange[1], n),
-  );
+const invlerp = (min: number, max: number, n: number) => clamp((n - min) / (max - min));
+const interpolate = (inputRange: number[], outputRange: number[], n: number) => 
+  lerp(outputRange[0], outputRange[1], invlerp(inputRange[0], inputRange[1], n));
 
 interface DeviceStatus {
   hostname: string;
@@ -43,7 +35,6 @@ export class CCTDownlighter {
   private statusCheckInterval: NodeJS.Timeout | null = null;
   private readonly RECONNECT_INTERVAL = 5000; // 5 seconds
   private readonly STATUS_CHECK_INTERVAL = 3000; // 3 seconds
-  private readonly MESSAGE_TIMEOUT = 5000; // 5 seconds
   private isOnline = false;
   private lastStatus: DeviceStatus | null = null;
 
@@ -153,106 +144,40 @@ export class CCTDownlighter {
     const coolValue = Math.floor(saturation_sct * (this.states.Brightness / 100));
     const warmValue = Math.floor((100 - saturation_sct) * (this.states.Brightness / 100));
     
-    // Convert to hex
-    let coolHexValue = coolValue.toString(16);
-    if (coolHexValue.length === 1) {
-      coolHexValue = '0' + coolHexValue;
-    }
+    // Convert to hex with padding
+    const coolHexValue = coolValue.toString(16).padStart(2, '0');
+    const warmHexValue = warmValue.toString(16).padStart(2, '0');
     
-    let warmHexValue = warmValue.toString(16);
-    if (warmHexValue.length === 1) {
-      warmHexValue = '0' + warmHexValue;
-    }
-    
-    // Return the final hex string with padded zeros
+    // Return the final hex string
     return '#' + coolHexValue + warmHexValue + '00';
   }
 
   /**
-   * Send a message to the device with timeout and response handling
+   * Send a message to the device if connection is open
    */
-  private async sendMessage(message: string): Promise<DeviceStatus | Record<string, never>> {
-    return new Promise((resolve, reject) => {
-      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-        reject(new Error('WebSocket not connected'));
-        return;
-      }
-
-      // Set up timeout
-      const timeoutId = setTimeout(() => {
-        reject(new Error('Message timeout'));
-      }, this.MESSAGE_TIMEOUT);
-
-      // Set up one-time message handler
-      const messageHandler = (data: WebSocket.Data) => {
-        clearTimeout(timeoutId);
-        this.ws!.removeListener('message', messageHandler);
-        try {
-          const response = JSON.parse(data.toString());
-          // Validate if it's a status response by checking for required fields
-          if ('hostname' in response && 'mac' in response && 'firmwareVersion' in response) {
-            resolve(response as DeviceStatus);
-          } else {
-            // For hex color commands, we expect an empty object response
-            resolve(response as Record<string, never>);
-          }
-        } catch (error) {
-          reject(new Error('Invalid response format'));
-        }
-      };
-
-      // Listen for the response
-      this.ws.once('message', messageHandler);
-
-      // Send the message
-      try {
-        this.ws.send(message);
-      } catch (error) {
-        clearTimeout(timeoutId);
-        this.ws!.removeListener('message', messageHandler);
-        reject(error);
-      }
-    });
+  private sendMessage(message: string) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(message);
+    }
   }
-  
+
   /**
    * Check device status
    */
-  private async checkStatus() {
-    try {
-      const status = await this.sendMessage(JSON.stringify({ cmd: 'STATUS' })) as DeviceStatus;
-      
-      // Update accessory information with status data
-      this.updateAccessoryInfo(status);
-      
-      if (!this.isOnline) {
-        this.isOnline = true;
-        this.platform.log.info('Device is online:', status.hostname);
-        // Update the connected state
-        this.service.updateCharacteristic(this.platform.Characteristic.On, this.states.On);
-      }
-    } catch (error) {
-      if (this.isOnline) {
-        this.isOnline = false;
-        this.platform.log.warn('Device is offline:', this.accessory.displayName);
-        // Optionally update characteristics to show device is unreachable
-        this.service.updateCharacteristic(this.platform.Characteristic.On, new Error('Device offline'));
-      }
-    }
+  private checkStatus() {
+    this.sendMessage(JSON.stringify({ cmd: 'STATUS' }));
   }
 
   /**
    * Send the current state to the device as a hex value
    */
-  private async sendState() {
-    const hexValue = this.calculateHexValue();
-    try {
-      await this.sendMessage(hexValue);
-      this.platform.log.debug('Sent hex value:', hexValue);
-    } catch (error) {
-      this.platform.log.error('Failed to send state:', error);
-      throw error;
+  private sendState() {
+    if (!this.isOnline) {
+      return;
     }
+    const hexValue = this.calculateHexValue();
+    this.sendMessage(hexValue);
+    this.platform.log.debug('Sent hex value:', hexValue);
   }
 
   /**
@@ -277,41 +202,55 @@ export class CCTDownlighter {
           clearInterval(this.statusCheckInterval);
         }
         this.statusCheckInterval = setInterval(() => {
-          this.checkStatus().catch(error => {
-            this.platform.log.debug('Status check failed:', error);
-          });
+          this.checkStatus();
         }, this.STATUS_CHECK_INTERVAL);
 
-        // Send initial state
-        this.sendState().catch(error => {
-          this.platform.log.error('Failed to send initial state:', error);
-        });
+        this.isOnline = true;
+        this.sendState();
+      });
+
+      this.ws.on('message', (data) => {
+        try {
+          const response = JSON.parse(data.toString());
+          // Validate if it's a status response by checking for required fields
+          if ('hostname' in response && 'mac' in response && 'firmwareVersion' in response) {
+            this.updateAccessoryInfo(response as DeviceStatus);
+            if (!this.isOnline) {
+              this.isOnline = true;
+              this.platform.log.info('Device is online:', response.hostname);
+            }
+          }
+        } catch (error) {
+          // Ignore parse errors for non-status messages
+        }
       });
 
       this.ws.on('close', () => {
         this.platform.log.warn('WebSocket connection closed');
-        this.isOnline = false;
-        if (this.statusCheckInterval) {
-          clearInterval(this.statusCheckInterval);
-          this.statusCheckInterval = null;
-        }
-        this.scheduleReconnect();
+        this.handleDisconnection();
       });
 
       this.ws.on('error', (error) => {
         this.platform.log.error('WebSocket error:', error);
-        this.isOnline = false;
-        if (this.statusCheckInterval) {
-          clearInterval(this.statusCheckInterval);
-          this.statusCheckInterval = null;
-        }
-        this.scheduleReconnect();
+        this.handleDisconnection();
       });
 
     } catch (error) {
       this.platform.log.error('Failed to create WebSocket connection:', error);
-      this.scheduleReconnect();
+      this.handleDisconnection();
     }
+  }
+
+  /**
+   * Handle device disconnection
+   */
+  private handleDisconnection() {
+    this.isOnline = false;
+    if (this.statusCheckInterval) {
+      clearInterval(this.statusCheckInterval);
+      this.statusCheckInterval = null;
+    }
+    this.scheduleReconnect();
   }
 
   /**
@@ -331,10 +270,10 @@ export class CCTDownlighter {
    */
   async setOn(value: CharacteristicValue) {
     if (!this.isOnline) {
-      throw new Error('Device offline');
+      return;
     }
     this.states.On = value as boolean;
-    await this.sendState();
+    this.sendState();
     this.platform.log.debug('Set Characteristic On ->', value);
   }
 
@@ -342,9 +281,6 @@ export class CCTDownlighter {
    * Handle "GET" requests for the On/Off characteristic
    */
   async getOn(): Promise<CharacteristicValue> {
-    if (!this.isOnline) {
-      throw new Error('Device offline');
-    }
     return this.states.On;
   }
 
@@ -353,10 +289,10 @@ export class CCTDownlighter {
    */
   async setBrightness(value: CharacteristicValue) {
     if (!this.isOnline) {
-      throw new Error('Device offline');
+      return;
     }
     this.states.Brightness = value as number;
-    await this.sendState();
+    this.sendState();
     this.platform.log.debug('Set Characteristic Brightness -> ', value);
   }
 
@@ -364,9 +300,6 @@ export class CCTDownlighter {
    * Handle "GET" requests for the Brightness characteristic
    */
   async getBrightness(): Promise<CharacteristicValue> {
-    if (!this.isOnline) {
-      throw new Error('Device offline');
-    }
     return this.states.Brightness;
   }
 
@@ -375,10 +308,10 @@ export class CCTDownlighter {
    */
   async setColorTemperature(value: CharacteristicValue) {
     if (!this.isOnline) {
-      throw new Error('Device offline');
+      return;
     }
     this.states.ColorTemperature = value as number;
-    await this.sendState();
+    this.sendState();
     this.platform.log.debug('Set Characteristic Color Temperature -> ', value);
   }
 
@@ -386,9 +319,6 @@ export class CCTDownlighter {
    * Handle "GET" requests for the Color Temperature characteristic
    */
   async getColorTemperature(): Promise<CharacteristicValue> {
-    if (!this.isOnline) {
-      throw new Error('Device offline');
-    }
     return this.states.ColorTemperature;
   }
 
