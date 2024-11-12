@@ -69,7 +69,7 @@ export class CCTDownlighter {
       this.restoreState ? 'enabled' : 'disabled',
       '- Device will',
       this.restoreState ? 'restore' : 'not restore',
-      'its last known state on reconnection'
+      'its last known state on reconnection',
     );
 
     // Always load cached state for HomeKit
@@ -190,7 +190,7 @@ export class CCTDownlighter {
   private updateNotResponding() {
     this.service.updateCharacteristic(
       this.platform.Characteristic.On,
-      new Error('Device not responding')
+      new Error('Device not responding'),
     );
   }
 
