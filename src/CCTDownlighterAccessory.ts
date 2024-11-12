@@ -132,7 +132,7 @@ export class CCTDownlighter {
   private updateNotResponding() {
     this.service.updateCharacteristic(
       this.platform.Characteristic.On,
-      new Error('Device not responding')
+      new Error('Device not responding'),
     );
   }
 
