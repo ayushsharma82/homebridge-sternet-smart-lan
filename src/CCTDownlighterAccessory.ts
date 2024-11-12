@@ -148,11 +148,6 @@ export class CCTDownlighter {
     
     // Format firmware version as major.minor.patch
     const firmwareString = status.firmwareVersion.toString().padStart(7, '0');
-    const major = parseInt(firmwareString.slice(0, 1));
-    const minor = parseInt(firmwareString.slice(1, 4));
-    const patch = parseInt(firmwareString.slice(4));
-    const formattedFirmware = `${major}.${minor}.${patch}`;
-
     // Only update characteristics if they've changed
     const currentManufacturer = accessoryInfo.getCharacteristic(this.platform.Characteristic.Manufacturer).value;
     if (currentManufacturer !== 'Sternet Smart') {
@@ -170,8 +165,8 @@ export class CCTDownlighter {
     }
 
     const currentFirmware = accessoryInfo.getCharacteristic(this.platform.Characteristic.FirmwareRevision).value;
-    if (currentFirmware !== formattedFirmware) {
-      accessoryInfo.setCharacteristic(this.platform.Characteristic.FirmwareRevision, formattedFirmware);
+    if (currentFirmware !== firmwareString) {
+      accessoryInfo.setCharacteristic(this.platform.Characteristic.FirmwareRevision, firmwareString);
     }
 
     // Update name if hostname has changed
