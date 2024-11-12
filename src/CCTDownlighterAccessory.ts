@@ -63,7 +63,7 @@ export class CCTDownlighter {
     private readonly accessory: PlatformAccessory,
   ) {
     // Get restore state preference from device config
-    this.restoreState = accessory.context.device.restoreState ?? false;
+    this.restoreState = accessory.context.device.restore_state ?? false;
     this.platform.log.debug(
       'Device restore state setting:',
       this.restoreState ? 'enabled' : 'disabled',

@@ -38,7 +38,7 @@
               "required": true,
               "default": ""
             },
-            "restoreState": {
+            "restore_state": {
               "title": "Restore Last State",
               "type": "boolean",
               "description": "Send cached/last known state to device whenever it reconnects",

@@ -10,6 +10,7 @@ interface DeviceConfig {
   name: string;
   device_type: 'cct_downlighter';
   ip: string;
+  restore_state: boolean;
 }
 
 /**
@@ -90,6 +91,7 @@ export class SternetSmartHomebridgePlatform implements DynamicPlatformPlugin {
           name: device.name,
           type: device.device_type,
           ip: device.ip,
+          restore_state: device.restore_state,
         };
         this.api.updatePlatformAccessories([existingAccessory]);
 
