@@ -1,6 +1,6 @@
 # homebridge-sternet-smart-lan
 
-[![npm version](https://badge.fury.io/js/homebridge-sternet-smart-lan.svg)](https://badge.fury.io/js/homebridge-sternet-smart)
+[![npm version](https://badge.fury.io/js/homebridge-sternet-smart-lan.svg)](https://badge.fury.io/js/homebridge-sternet-smart-lan)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-yellow.svg)](https://opensource.org/licenses/Apache-2.0)
 
 This is a Homebridge plugin for controlling Sternet Smart devices locally over LAN. It allows you to integrate your Sternet Smart devices with HomeKit, enabling control through the Home app and Siri.
