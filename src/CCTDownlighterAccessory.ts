@@ -316,12 +316,12 @@ export class CCTDownlighter {
       });
 
       this.ws.on('error', (error) => {
-        this.platform.log.error('WebSocket error:', error);
+        this.platform.log.debug('WebSocket error:', error);
         this.handleDisconnection();
       });
 
     } catch (error) {
-      this.platform.log.error('Failed to create WebSocket connection:', error);
+      this.platform.log.debug('Failed to create WebSocket connection:', error);
       this.handleDisconnection();
     }
   }
@@ -345,7 +345,7 @@ export class CCTDownlighter {
   private scheduleReconnect() {
     if (!this.reconnectInterval) {
       this.reconnectInterval = setInterval(() => {
-        this.platform.log.info('Attempting to reconnect WebSocket...');
+        this.platform.log.debug('Attempting to reconnect WebSocket...');
         this.connectWebSocket();
       }, this.RECONNECT_INTERVAL);
     }
