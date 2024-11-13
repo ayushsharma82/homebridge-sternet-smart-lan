@@ -44,9 +44,11 @@ export class CCTDownlighter {
   private service: Service;
   private ws: WebSocket | null = null;
   private reconnectInterval: NodeJS.Timeout | null = null;
+  private connectionTimeout: NodeJS.Timeout | null = null;
   private statusCheckInterval: NodeJS.Timeout | null = null;
-  private readonly RECONNECT_INTERVAL = 5000; // 5 seconds
-  private readonly STATUS_CHECK_INTERVAL = 3000; // 3 seconds
+  private readonly RECONNECT_INTERVAL = 5000;     // 5 seconds
+  private readonly STATUS_CHECK_INTERVAL = 5000;  // 5 seconds
+  private readonly CONNECTION_TIMEOUT = 12000;    // 12 seconds
   private isOnline = false;
   private lastStatus: DeviceStatus | null = null;
   private readonly restoreState: boolean;
@@ -290,6 +292,9 @@ export class CCTDownlighter {
         
         // Always update HomeKit to show device is responding
         this.service.updateCharacteristic(this.platform.Characteristic.On, this.states.On);
+
+        // Create a connection timeout
+        this.scheduleConnectionTimeout();
       });
 
       this.ws.on('message', (data) => {
@@ -305,6 +310,8 @@ export class CCTDownlighter {
               this.service.updateCharacteristic(this.platform.Characteristic.On, this.states.On);
             }
           }
+          // Create a connection timeout based on last received message
+          this.scheduleConnectionTimeout();
         } catch (error) {
           // Ignore parse errors for non-status messages
         }
@@ -343,12 +350,29 @@ export class CCTDownlighter {
    * Schedule WebSocket reconnection
    */
   private scheduleReconnect() {
-    if (!this.reconnectInterval) {
+    if (this.reconnectInterval === null) {
       this.reconnectInterval = setInterval(() => {
         this.platform.log.debug('Attempting to reconnect WebSocket...');
         this.connectWebSocket();
       }, this.RECONNECT_INTERVAL);
     }
+  }
+
+  /**
+   * Schedule connection timeout
+   */
+  private scheduleConnectionTimeout() {
+    // Clear any existing connection timeout
+    if (this.connectionTimeout !== null) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
+
+    this.connectionTimeout = setTimeout(() => {
+      this.platform.log.warn('Connection timed out');
+      this.ws?.terminate();
+      this.handleDisconnection();
+    }, this.CONNECTION_TIMEOUT);
   }
 
   /**
