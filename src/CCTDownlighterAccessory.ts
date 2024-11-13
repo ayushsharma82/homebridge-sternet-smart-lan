@@ -87,8 +87,8 @@ export class CCTDownlighter {
 
     // Register handlers for On/Off Characteristic
     this.service.getCharacteristic(this.platform.Characteristic.On)
-      .onSet(this.setOn.bind(this))
-      .onGet(this.getOn.bind(this));
+      .onSet(this.setOn.bind(this));
+    // .onGet(this.getOn.bind(this));
 
     // Register handlers for Brightness Characteristic
     this.service.getCharacteristic(this.platform.Characteristic.Brightness)
@@ -252,6 +252,15 @@ export class CCTDownlighter {
     const deviceIP = this.accessory.context.device.ip;
     const wsUrl = `ws://${deviceIP}/ws`;
 
+    // Clear previous WS
+    try {
+      if (this.ws) {
+        this.ws.close();
+      }
+    } catch (err) {
+      this.platform.log.warn('Failed to close previous WebSocket connection:', err);
+    }
+
     try {
       this.ws = new WebSocket(wsUrl);
 
@@ -352,6 +361,7 @@ export class CCTDownlighter {
     if (this.isOnline) {
       this.sendState();
       this.platform.log.debug('Set Characteristic On ->', value);
+      this.service.updateCharacteristic(this.platform.Characteristic.On, this.states.On);
     }
   }
 
@@ -359,12 +369,9 @@ export class CCTDownlighter {
    * Handle "GET" requests for the On/Off characteristic
    * Primary characteristic that indicates device responsiveness
    */
-  async getOn(): Promise<CharacteristicValue> {
-    if (!this.isOnline) {
-      throw new Error('Device not responding');
-    }
-    return this.states.On;
-  }
+  // async getOn(): Promise<CharacteristicValue> {
+  //   return this.states.On;
+  // }
 
   /**
    * Handle "SET" requests for the Brightness characteristic
