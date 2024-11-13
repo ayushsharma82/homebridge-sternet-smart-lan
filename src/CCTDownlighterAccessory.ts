@@ -43,7 +43,7 @@ interface AccessoryState {
 export class CCTDownlighter {
   private service: Service;
   private ws: WebSocket | null = null;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
+  private reconnectInterval: NodeJS.Timeout | null = null;
   private statusCheckInterval: NodeJS.Timeout | null = null;
   private readonly RECONNECT_INTERVAL = 5000; // 5 seconds
   private readonly STATUS_CHECK_INTERVAL = 3000; // 3 seconds
@@ -145,9 +145,8 @@ export class CCTDownlighter {
    */
   private updateAccessoryInfo(status: DeviceStatus) {
     const accessoryInfo = this.accessory.getService(this.platform.Service.AccessoryInformation)!;
+    const firmwareString = status.firmwareVersion.toString();
     
-    // Format firmware version as major.minor.patch
-    const firmwareString = status.firmwareVersion.toString().padStart(7, '0');
     // Only update characteristics if they've changed
     const currentManufacturer = accessoryInfo.getCharacteristic(this.platform.Characteristic.Manufacturer).value;
     if (currentManufacturer !== 'Sternet Smart') {
@@ -266,9 +265,9 @@ export class CCTDownlighter {
 
       this.ws.on('open', () => {
         this.platform.log.info('WebSocket connected to:', wsUrl);
-        if (this.reconnectTimeout) {
-          clearTimeout(this.reconnectTimeout);
-          this.reconnectTimeout = null;
+        if (this.reconnectInterval) {
+          clearInterval(this.reconnectInterval);
+          this.reconnectInterval = null;
         }
 
         // Start status checking
@@ -344,8 +343,8 @@ export class CCTDownlighter {
    * Schedule WebSocket reconnection
    */
   private scheduleReconnect() {
-    if (!this.reconnectTimeout) {
-      this.reconnectTimeout = setTimeout(() => {
+    if (!this.reconnectInterval) {
+      this.reconnectInterval = setInterval(() => {
         this.platform.log.info('Attempting to reconnect WebSocket...');
         this.connectWebSocket();
       }, this.RECONNECT_INTERVAL);
@@ -418,8 +417,8 @@ export class CCTDownlighter {
     if (this.ws) {
       this.ws.close();
     }
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
+    if (this.reconnectInterval) {
+      clearTimeout(this.reconnectInterval);
     }
     if (this.statusCheckInterval) {
       clearInterval(this.statusCheckInterval);
