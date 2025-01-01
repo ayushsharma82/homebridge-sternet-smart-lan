@@ -2,7 +2,7 @@
   "name": "homebridge-sternet-smart-lan",
   "displayName": "Sternet Smart Plugin (LAN control)",
   "type": "module",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "A homebridge plugin for controlling sternet smart devices over local area network.",
   "author": "Ayush Sharma",
   "license": "Apache-2.0",
