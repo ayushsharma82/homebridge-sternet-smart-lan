@@ -46,9 +46,9 @@ export class CCTDownlighter {
   private reconnectInterval: NodeJS.Timeout | null = null;
   private connectionTimeout: NodeJS.Timeout | null = null;
   private statusCheckInterval: NodeJS.Timeout | null = null;
-  private readonly RECONNECT_INTERVAL = 5000;     // 5 seconds
-  private readonly STATUS_CHECK_INTERVAL = 5000;  // 5 seconds
-  private readonly CONNECTION_TIMEOUT = 12000;    // 12 seconds
+  private readonly RECONNECT_INTERVAL = 15000;      // 15 seconds
+  private readonly STATUS_CHECK_INTERVAL = 20000;  // 20 seconds
+  private readonly CONNECTION_TIMEOUT = 30000;     // 30 seconds
   private isOnline = false;
   private lastStatus: DeviceStatus | null = null;
   private readonly restoreState: boolean;
@@ -89,8 +89,8 @@ export class CCTDownlighter {
 
     // Register handlers for On/Off Characteristic
     this.service.getCharacteristic(this.platform.Characteristic.On)
-      .onSet(this.setOn.bind(this));
-    // .onGet(this.getOn.bind(this));
+      .onSet(this.setOn.bind(this))
+      .onGet(this.getOn.bind(this));
 
     // Register handlers for Brightness Characteristic
     this.service.getCharacteristic(this.platform.Characteristic.Brightness)
