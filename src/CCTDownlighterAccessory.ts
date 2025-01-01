@@ -392,9 +392,9 @@ export class CCTDownlighter {
    * Handle "GET" requests for the On/Off characteristic
    * Primary characteristic that indicates device responsiveness
    */
-  // async getOn(): Promise<CharacteristicValue> {
-  //   return this.states.On;
-  // }
+  async getOn(): Promise<CharacteristicValue> {
+    return this.states.On;
+  }
 
   /**
    * Handle "SET" requests for the Brightness characteristic
